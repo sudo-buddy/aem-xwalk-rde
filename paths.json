@@ -1,10 +1,10 @@
 {
   "mappings": [
-    "/content/aem-ue-rde/:/",
-    "/content/aem-ue-rde/configuration:/.helix/config.json",
-    "/content/aem-ue-rde/metadata:/metadata.json"
+    "/content/aem-xwalk-rde/:/",
+    "/content/aem-xwalk-rde/configuration:/.helix/config.json",
+    "/content/aem-xwalk-rde/metadata:/metadata.json"
   ],
   "includes": [
-    "/content/aem-ue-rde/"
+    "/content/aem-xwalk-rde/"
   ]
 }
