@@ -971,17 +971,62 @@ export async function loadEager(document, options = {}) {
 }
 
 export async function loadLazy(document, options = {}) {
-  const pluginOptions = { ...DEFAULT_OPTIONS, ...options };
   // do not show the experimentation pill on prod domains
   if (!isDebugEnabled) {
     return;
   }
-  // eslint-disable-next-line import/no-unresolved
-  const preview = await import('https://opensource.adobe.com/aem-experimentation/preview.js');
-  const context = {
-    getMetadata,
-    toClassName,
-    debug,
-  };
-  preview.default.call(context, document, pluginOptions);
+
+  window.addEventListener('message', async (event) => {
+    if (event.data && event.data.type === 'hlx:last-modified-request') {
+      const { url } = event.data;
+
+      try {
+        const response = await fetch(url, {
+          method: 'HEAD',
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+          },
+        });
+
+        const lastModified = response.headers.get('Last-Modified');
+
+        event.source.postMessage(
+          {
+            type: 'hlx:last-modified-response',
+            url,
+            lastModified,
+            status: response.status,
+          },
+          event.origin,
+        );
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Error fetching Last-Modified header:', error);
+      }
+    } else if (event.data?.type === 'hlx:experimentation-get-config') {
+      try {
+        const safeClone = JSON.parse(JSON.stringify(window.hlx));
+        if (options.prodHost) {
+          safeClone.prodHost = options.prodHost;
+        }
+        event.source.postMessage(
+          {
+            type: 'hlx:experimentation-config',
+            config: safeClone,
+            source: 'index-js',
+          },
+          '*',
+        );
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('Error sending hlx config:', e);
+      }
+    } else if (
+      event.data?.type === 'hlx:experimentation-window-reload'
+      && event.data?.action === 'reload'
+    ) {
+      window.location.reload();
+    }
+  });
 }
