@@ -1006,6 +1006,7 @@ export async function loadLazy(document, options = {}) {
       }
     } else if (event.data?.type === 'hlx:experimentation-get-config') {
       try {
+        console.log('getting event', event);
         const safeClone = JSON.parse(JSON.stringify(window.hlx));
         if (options.prodHost) {
           safeClone.prodHost = options.prodHost;
@@ -1018,6 +1019,7 @@ export async function loadLazy(document, options = {}) {
           },
           '*',
         );
+        console.log('sent event', event);
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error('Error sending hlx config:', e);
