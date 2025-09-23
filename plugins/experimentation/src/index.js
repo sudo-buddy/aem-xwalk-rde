@@ -969,41 +969,22 @@ export async function loadEager(document, options = {}) {
   ns.audience = ns.audiences.find((e) => e.type === 'page');
   ns.campaign = ns.campaigns.find((e) => e.type === 'page');
 
+  if (isDebugEnabled) {
+    setupCommunicationLayer(pluginOptions);
+  }
+}
+
+// Support new Rail UI communication
+function setupCommunicationLayer(options) {
   window.addEventListener('message', async (event) => {
-    if (event.data && event.data.type === 'hlx:last-modified-request') {
-      const { url } = event.data;
-
+    if (event.data?.type === 'hlx:experimentation-get-config') {
       try {
-        const response = await fetch(url, {
-          method: 'HEAD',
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache',
-          },
-        });
-
-        const lastModified = response.headers.get('Last-Modified');
-
-        event.source.postMessage(
-          {
-            type: 'hlx:last-modified-response',
-            url,
-            lastModified,
-            status: response.status,
-          },
-          event.origin,
-        );
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Error fetching Last-Modified header:', error);
-      }
-    } else if (event.data?.type === 'hlx:experimentation-get-config') {
-      try {
-        console.log('getting event in loadEager', event);
         const safeClone = JSON.parse(JSON.stringify(window.hlx));
+
         if (options.prodHost) {
           safeClone.prodHost = options.prodHost;
         }
+
         event.source.postMessage(
           {
             type: 'hlx:experimentation-config',
@@ -1012,16 +993,10 @@ export async function loadEager(document, options = {}) {
           },
           '*',
         );
-        console.log('sent event', event);
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error('Error sending hlx config:', e);
       }
-    } else if (
-      event.data?.type === 'hlx:experimentation-window-reload'
-      && event.data?.action === 'reload'
-    ) {
-      window.location.reload();
     }
   });
 }
@@ -1032,59 +1007,59 @@ export async function loadLazy(document, options = {}) {
     return;
   }
 
-  window.addEventListener('message', async (event) => {
-    if (event.data && event.data.type === 'hlx:last-modified-request') {
-      const { url } = event.data;
+  // window.addEventListener('message', async (event) => {
+  //   if (event.data && event.data.type === 'hlx:last-modified-request') {
+  //     const { url } = event.data;
 
-      try {
-        const response = await fetch(url, {
-          method: 'HEAD',
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache',
-          },
-        });
+  //     try {
+  //       const response = await fetch(url, {
+  //         method: 'HEAD',
+  //         cache: 'no-store',
+  //         headers: {
+  //           'Cache-Control': 'no-cache',
+  //         },
+  //       });
 
-        const lastModified = response.headers.get('Last-Modified');
+  //       const lastModified = response.headers.get('Last-Modified');
 
-        event.source.postMessage(
-          {
-            type: 'hlx:last-modified-response',
-            url,
-            lastModified,
-            status: response.status,
-          },
-          event.origin,
-        );
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Error fetching Last-Modified header:', error);
-      }
-    } else if (event.data?.type === 'hlx:experimentation-get-config') {
-      try {
-        console.log('getting event', event);
-        const safeClone = JSON.parse(JSON.stringify(window.hlx));
-        if (options.prodHost) {
-          safeClone.prodHost = options.prodHost;
-        }
-        event.source.postMessage(
-          {
-            type: 'hlx:experimentation-config',
-            config: safeClone,
-            source: 'index-js',
-          },
-          '*',
-        );
-        console.log('sent event', event);
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.error('Error sending hlx config:', e);
-      }
-    } else if (
-      event.data?.type === 'hlx:experimentation-window-reload'
-      && event.data?.action === 'reload'
-    ) {
-      window.location.reload();
-    }
-  });
+  //       event.source.postMessage(
+  //         {
+  //           type: 'hlx:last-modified-response',
+  //           url,
+  //           lastModified,
+  //           status: response.status,
+  //         },
+  //         event.origin,
+  //       );
+  //     } catch (error) {
+  //       // eslint-disable-next-line no-console
+  //       console.error('Error fetching Last-Modified header:', error);
+  //     }
+  //   } else if (event.data?.type === 'hlx:experimentation-get-config') {
+  //     try {
+  //       console.log('getting event', event);
+  //       const safeClone = JSON.parse(JSON.stringify(window.hlx));
+  //       if (options.prodHost) {
+  //         safeClone.prodHost = options.prodHost;
+  //       }
+  //       event.source.postMessage(
+  //         {
+  //           type: 'hlx:experimentation-config',
+  //           config: safeClone,
+  //           source: 'index-js',
+  //         },
+  //         '*',
+  //       );
+  //       console.log('sent event', event);
+  //     } catch (e) {
+  //       // eslint-disable-next-line no-console
+  //       console.error('Error sending hlx config:', e);
+  //     }
+  //   } else if (
+  //     event.data?.type === 'hlx:experimentation-window-reload'
+  //     && event.data?.action === 'reload'
+  //   ) {
+  //     window.location.reload();
+  //   }
+  // });
 }
