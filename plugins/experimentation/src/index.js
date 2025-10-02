@@ -976,32 +976,57 @@ export async function loadEager(document, options = {}) {
 }
 
 // Support new Rail UI communication
+// function setupCommunicationLayer(options) {
+//   window.addEventListener('message', async (event) => {
+//     console.log('event', event);
+//     if (event.data?.type === 'hlx:experimentation-get-config') {
+//       console.log('getting event', event);
+//       try {
+//         const safeClone = JSON.parse(JSON.stringify(window.hlx));
+
+//         if (options.prodHost) {
+//           safeClone.prodHost = options.prodHost;
+//         }
+
+//         event.source.postMessage(
+//           {
+//             type: 'hlx:experimentation-config',
+//             config: safeClone,
+//             source: 'index-js',
+//           },
+//           '*',
+//         );
+//         console.log('sent event', event);
+//       } catch (e) {
+//         // eslint-disable-next-line no-console
+//         console.error('Error sending hlx config:', e);
+//       }
+//     }
+//   });
+// }
 function setupCommunicationLayer(options) {
-  window.addEventListener('message', async (event) => {
-    console.log('event', event);
-    if (event.data?.type === 'hlx:experimentation-get-config') {
-      console.log('getting event', event);
+//test new way of sending config
+  document.addEventListener('hlx:experimentation-get-config', async (event) => {
+      console.log('🎯 Engine: Received CustomEvent request for config!', event.detail);
+      
       try {
-        const safeClone = JSON.parse(JSON.stringify(window.hlx));
-
-        if (options.prodHost) {
-          safeClone.prodHost = options.prodHost;
-        }
-
-        event.source.postMessage(
-          {
-            type: 'hlx:experimentation-config',
-            config: safeClone,
-            source: 'index-js',
-          },
-          '*',
-        );
-        console.log('sent event', event);
+          const safeClone = JSON.parse(JSON.stringify(window.hlx));
+          if (options.prodHost) {
+              safeClone.prodHost = options.prodHost;
+          }
+          
+          // Send response via CustomEvent
+          document.dispatchEvent(new CustomEvent('hlx:experimentation-config', {
+              detail: {
+                  config: safeClone,
+                  source: 'engine-custom-event'
+              }
+          }));
+          
+          console.log('✅ Engine: Sent config via CustomEvent');
       } catch (e) {
-        // eslint-disable-next-line no-console
-        console.error('Error sending hlx config:', e);
+          console.error('❌ Engine: Error sending config via CustomEvent:', e);
       }
-    }
   });
 }
 
