@@ -969,6 +969,28 @@ export async function loadEager(document, options = {}) {
   ns.audience = ns.audiences.find((e) => e.type === 'page');
   ns.campaign = ns.campaigns.find((e) => e.type === 'page');
 
+  document.addEventListener('hlx:experimentation-get-config', async (event) => {
+
+    try {
+      const config = JSON.parse(JSON.stringify(window.hlx || window.aem || {}));
+
+      if (pluginOptions?.prodHost) {
+        config.prodHost = pluginOptions.prodHost;
+      }
+
+      window.parent.postMessage({
+        type: 'hlx:experimentation-config',
+        config,
+        source: 'engine-custom-event-response',
+        timestamp: Date.now()
+      }, '*');
+
+      console.log('Engine: Sent config response via postMessage');
+
+    } catch (error) {
+      console.error('Engine: Error handling CustomEvent config request:', error);
+    }
+  });
   if (isDebugEnabled) {
     console.log('setting up communication layer');
     setupCommunicationLayer(pluginOptions);
@@ -976,87 +998,33 @@ export async function loadEager(document, options = {}) {
 }
 
 // Support new Rail UI communication
-// function setupCommunicationLayer(options) {
-//   window.addEventListener('message', async (event) => {
-//     console.log('event', event);
-//     if (event.data?.type === 'hlx:experimentation-get-config') {
-//       console.log('getting event', event);
-//       try {
-//         const safeClone = JSON.parse(JSON.stringify(window.hlx));
-
-//         if (options.prodHost) {
-//           safeClone.prodHost = options.prodHost;
-//         }
-
-//         event.source.postMessage(
-//           {
-//             type: 'hlx:experimentation-config',
-//             config: safeClone,
-//             source: 'index-js',
-//           },
-//           '*',
-//         );
-//         console.log('sent event', event);
-//       } catch (e) {
-//         // eslint-disable-next-line no-console
-//         console.error('Error sending hlx config:', e);
-//       }
-//     }
-//   });
-// }
 function setupCommunicationLayer(options) {
-// 🧪 TEST: Engine tries BOTH CustomEvent AND postMessage
-document.addEventListener('hlx:experimentation-get-config', async (event) => {
-  console.log('🎯 Engine: Received CustomEvent request for config!', event.detail);
-  
-  try {
-      const config = JSON.parse(JSON.stringify(window.hlx || window.aem || {}));
-      if (options?.prodHost) {
-          config.prodHost = options.prodHost;
-      }
-      
-      console.log('🧪 TEST: Engine trying BOTH CustomEvent AND postMessage...');
-      
-      // 🧪 TEST 1: Try CustomEvent (this should FAIL)
+  window.addEventListener('message', async (event) => {
+    console.log('event', event);
+    if (event.data?.type === 'hlx:experimentation-get-config') {
+      console.log('getting event', event);
       try {
-          console.log('🧪 TEST 1: Trying CustomEvent on engine document...');
-          document.dispatchEvent(new CustomEvent('hlx:experimentation-config-custom', {
-              detail: {
-                  config,
-                  source: 'engine-custom-event-test',
-                  timestamp: Date.now()
-              }
-          }));
-          console.log('🧪 TEST 1: CustomEvent dispatched on engine document');
-          
-          console.log('🧪 TEST 2: Trying CustomEvent on parent document...');
-          window.parent.document.dispatchEvent(new CustomEvent('hlx:experimentation-config-custom', {
-              detail: {
-                  config,
-                  source: 'engine-custom-event-parent-test',
-                  timestamp: Date.now()
-              }
-          }));
-          console.log('🧪 TEST 2: CustomEvent dispatched on parent document');
-          
-      } catch (customEventError) {
-          console.log('🧪 TEST: CustomEvent failed:', customEventError.message);
+        const safeClone = JSON.parse(JSON.stringify(window.hlx));
+
+        if (options.prodHost) {
+          safeClone.prodHost = options.prodHost;
+        }
+
+        event.source.postMessage(
+          {
+            type: 'hlx:experimentation-config',
+            config: safeClone,
+            source: 'index-js',
+          },
+          '*',
+        );
+        console.log('sent event', event);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('Error sending hlx config:', e);
       }
-      
-      // 🧪 TEST 3: postMessage (this should WORK)
-      console.log('🧪 TEST 3: Trying postMessage...');
-      window.parent.postMessage({
-          type: 'hlx:experimentation-config',
-          config,
-          source: 'engine-postmessage-test',
-          timestamp: Date.now()
-      }, '*');
-      console.log('🧪 TEST 3: postMessage sent');
-      
-  } catch (error) {
-      console.error('❌ Engine: Error in test:', error);
-  }
-});
+    }
+  });
 }
 
 export async function loadLazy(document, options = {}) {
