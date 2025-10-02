@@ -969,73 +969,63 @@ export async function loadEager(document, options = {}) {
   ns.audience = ns.audiences.find((e) => e.type === 'page');
   ns.campaign = ns.campaigns.find((e) => e.type === 'page');
 
-  if (isDebugEnabled) {
-    setupCommunicationLayer(pluginOptions);
+  // NEW: triggerEvent support (always active for new extensions)
+  document.addEventListener('hlx:experimentation-get-config', async (event) => {
+    console.log('Engine: Received triggerEvent request for config');
     
-    // document.addEventListener('hlx:experimentation-get-config', async (event) => {
-    //   console.log('Engine: Received CustomEvent request for config');
-      
-    //   try {
-    //     const config = JSON.parse(JSON.stringify(window.hlx || window.aem || {}));
-        
-    //     if (pluginOptions?.prodHost) {
-    //       config.prodHost = pluginOptions.prodHost;
-    //     }
-        
-    //     window.parent.postMessage({
-    //       type: 'hlx:experimentation-config',
-    //       config,
-    //       source: 'engine-custom-event-response',
-    //       timestamp: Date.now()
-    //     }, '*');
-        
-    //     console.log('Engine: Sent config response via postMessage');
-        
-    //   } catch (error) {
-    //     console.error('Engine: Error handling CustomEvent config request:', error);
-    //   }
-    // });
-    // 🧪 TEST: Engine tries CustomEvent response instead of postMessage
-document.addEventListener('hlx:experimentation-get-config', async (event) => {
-  console.log('🎯 Engine: Received CustomEvent request for config!', event.detail);
-  
-  try {
+    try {
       const config = JSON.parse(JSON.stringify(window.hlx || window.aem || {}));
-      if (options?.prodHost) {
-          config.prodHost = options.prodHost;
+      
+      if (pluginOptions?.prodHost) {
+        config.prodHost = pluginOptions.prodHost;
       }
       
-      console.log('🧪 TEST: Engine trying CustomEvent response...');
-      
-      // 🧪 TEST: Try CustomEvent response (instead of postMessage)
-      try {
-          console.log('🧪 TEST: Dispatching CustomEvent on engine document...');
-          document.dispatchEvent(new CustomEvent('hlx:experimentation-config', {
-              detail: {
-                  config,
-                  source: 'engine-custom-event-response',
-                  timestamp: Date.now()
-              }
-          }));
-          console.log('🧪 TEST: CustomEvent dispatched successfully');
-          
-      } catch (customEventError) {
-          console.log('🧪 TEST: CustomEvent failed:', customEventError.message);
-      }
-      
-      // Keep postMessage as backup
-      console.log('🧪 BACKUP: Also sending postMessage...');
+      // Send response via postMessage (only reliable cross-iframe method)
       window.parent.postMessage({
-          type: 'hlx:experimentation-config',
-          config,
-          source: 'engine-postmessage-backup'
+        type: 'hlx:experimentation-config',
+        config,
+        source: 'engine-trigger-event-response',
+        timestamp: Date.now()
       }, '*');
       
-  } catch (error) {
-      console.error('❌ Engine: Error in test:', error);
+      console.log('Engine: Sent config response for triggerEvent');
+      
+    } catch (error) {
+      console.error('Engine: Error handling triggerEvent request:', error);
+    }
+  });
+
+  // postMessage support
+  if (isDebugEnabled) {
+    setupCommunicationLayer(pluginOptions);
   }
-});
-  }
+}
+
+// EXISTING: Support legacy postMessage communication
+function setupCommunicationLayer(options) {
+  window.addEventListener('message', async (event) => {
+    if (event.data?.type === 'hlx:experimentation-get-config') {
+      console.log('🎯 Engine: Received legacy postMessage request for config');
+      
+      try {
+        const safeClone = JSON.parse(JSON.stringify(window.hlx));
+
+        if (options.prodHost) {
+          safeClone.prodHost = options.prodHost;
+        }
+
+        event.source.postMessage({
+          type: 'hlx:experimentation-config',
+          config: safeClone,
+          source: 'engine-legacy-response',
+        }, '*');
+        
+        console.log('✅ Engine: Sent config response for legacy postMessage');
+      } catch (e) {
+        console.error('❌ Engine: Error sending legacy config:', e);
+      }
+    }
+  });
 }
 
 // Support new Rail UI communication
