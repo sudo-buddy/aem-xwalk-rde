@@ -969,31 +969,32 @@ export async function loadEager(document, options = {}) {
   ns.audience = ns.audiences.find((e) => e.type === 'page');
   ns.campaign = ns.campaigns.find((e) => e.type === 'page');
 
-  document.addEventListener('hlx:experimentation-get-config', async (event) => {
-
-    try {
-      const config = JSON.parse(JSON.stringify(window.hlx || window.aem || {}));
-
-      if (pluginOptions?.prodHost) {
-        config.prodHost = pluginOptions.prodHost;
-      }
-
-      window.parent.postMessage({
-        type: 'hlx:experimentation-config',
-        config,
-        source: 'engine-custom-event-response',
-        timestamp: Date.now()
-      }, '*');
-
-      console.log('Engine: Sent config response via postMessage');
-
-    } catch (error) {
-      console.error('Engine: Error handling CustomEvent config request:', error);
-    }
-  });
   if (isDebugEnabled) {
-    console.log('setting up communication layer');
     setupCommunicationLayer(pluginOptions);
+    
+    document.addEventListener('hlx:experimentation-get-config', async (event) => {
+      console.log('Engine: Received CustomEvent request for config');
+      
+      try {
+        const config = JSON.parse(JSON.stringify(window.hlx || window.aem || {}));
+        
+        if (pluginOptions?.prodHost) {
+          config.prodHost = pluginOptions.prodHost;
+        }
+        
+        window.parent.postMessage({
+          type: 'hlx:experimentation-config',
+          config,
+          source: 'engine-custom-event-response',
+          timestamp: Date.now()
+        }, '*');
+        
+        console.log('Engine: Sent config response via postMessage');
+        
+      } catch (error) {
+        console.error('Engine: Error handling CustomEvent config request:', error);
+      }
+    });
   }
 }
 
