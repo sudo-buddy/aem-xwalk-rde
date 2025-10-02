@@ -1006,28 +1006,45 @@ export async function loadEager(document, options = {}) {
 // }
 function setupCommunicationLayer(options) {
 //test new way of sending config
-  document.addEventListener('hlx:experimentation-get-config', async (event) => {
-      console.log('🎯 Engine: Received CustomEvent request for config!', event.detail);
+// Update your engine CustomEvent listener to this:
+document.addEventListener('hlx:experimentation-get-config', async (event) => {
+  console.log('🎯 Engine: Received CustomEvent request for config!', event.detail);
+  
+  try {
+      const safeClone = JSON.parse(JSON.stringify(window.hlx || window.aem || {}));
       
+      if (options?.prodHost) {
+          safeClone.prodHost = options.prodHost;
+      }
+      
+      console.log('📤 Engine: Sending config response via CustomEvent to parent document');
+      
+      // Try to dispatch CustomEvent on parent document
       try {
-          const safeClone = JSON.parse(JSON.stringify(window.hlx));
-          if (options.prodHost) {
-              safeClone.prodHost = options.prodHost;
-          }
-          
-          // Send response via CustomEvent
-          document.dispatchEvent(new CustomEvent('hlx:experimentation-config', {
+          window.parent.document.dispatchEvent(new CustomEvent('hlx:experimentation-config', {
               detail: {
                   config: safeClone,
-                  source: 'engine-custom-event'
+                  source: 'engine-custom-event-response',
+                  timestamp: Date.now()
               }
           }));
+          console.log('✅ Engine: Successfully sent CustomEvent to parent document');
+      } catch (parentError) {
+          console.warn('❌ Engine: Could not send CustomEvent to parent (cross-origin):', parentError.message);
           
-          console.log('✅ Engine: Sent config via CustomEvent');
-      } catch (e) {
-          console.error('❌ Engine: Error sending config via CustomEvent:', e);
+          // Fallback: try postMessage
+          window.parent.postMessage({
+              type: 'hlx:experimentation-config',
+              config: safeClone,
+              source: 'engine-custom-event-fallback'
+          }, '*');
+          console.log('📤 Engine: Sent fallback postMessage instead');
       }
-  });
+      
+  } catch (error) {
+      console.error('❌ Engine: Error handling CustomEvent config request:', error);
+  }
+});
 }
 
 export async function loadLazy(document, options = {}) {
