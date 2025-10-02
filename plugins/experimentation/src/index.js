@@ -1020,43 +1020,14 @@ function setupCommunicationLayer(options) {
           source: 'engine-legacy-response',
         }, '*');
         
-        console.log('✅ Engine: Sent config response for legacy postMessage');
+        console.log('Engine: Sent config response for legacy postMessage');
       } catch (e) {
-        console.error('❌ Engine: Error sending legacy config:', e);
+        console.error('Engine: Error sending legacy config:', e);
       }
     }
   });
 }
 
-// Support new Rail UI communication
-function setupCommunicationLayer(options) {
-  window.addEventListener('message', async (event) => {
-    console.log('event', event);
-    if (event.data?.type === 'hlx:experimentation-get-config') {
-      console.log('getting event', event);
-      try {
-        const safeClone = JSON.parse(JSON.stringify(window.hlx));
-
-        if (options.prodHost) {
-          safeClone.prodHost = options.prodHost;
-        }
-
-        event.source.postMessage(
-          {
-            type: 'hlx:experimentation-config',
-            config: safeClone,
-            source: 'index-js',
-          },
-          '*',
-        );
-        console.log('sent event', event);
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.error('Error sending hlx config:', e);
-      }
-    }
-  });
-}
 
 export async function loadLazy(document, options = {}) {
   // do not show the experimentation pill on prod domains
