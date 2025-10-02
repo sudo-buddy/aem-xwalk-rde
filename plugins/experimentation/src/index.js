@@ -970,6 +970,7 @@ export async function loadEager(document, options = {}) {
   ns.campaign = ns.campaigns.find((e) => e.type === 'page');
 
   if (isDebugEnabled) {
+    console.log('setting up communication layer');
     setupCommunicationLayer(pluginOptions);
   }
 }
@@ -977,7 +978,9 @@ export async function loadEager(document, options = {}) {
 // Support new Rail UI communication
 function setupCommunicationLayer(options) {
   window.addEventListener('message', async (event) => {
+    console.log('event', event);
     if (event.data?.type === 'hlx:experimentation-get-config') {
+      console.log('getting event', event);
       try {
         const safeClone = JSON.parse(JSON.stringify(window.hlx));
 
@@ -993,6 +996,7 @@ function setupCommunicationLayer(options) {
           },
           '*',
         );
+        console.log('sent event', event);
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error('Error sending hlx config:', e);
