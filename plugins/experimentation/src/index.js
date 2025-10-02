@@ -973,33 +973,53 @@ export async function loadEager(document, options = {}) {
   // 🧪 DEBUG: Log that we're setting up the listener
   console.log('🔧 Engine: Setting up triggerEvent listener...');
   
-  // NEW: triggerEvent support (always active for new extensions)
-  document.addEventListener('hlx:experimentation-get-config', async (event) => {
-    console.log('🎯 Engine: Received triggerEvent request for config!', event.detail);
+ // Update your engine's triggerEvent listener to this:
+document.addEventListener('hlx:experimentation-get-config', async (event) => {
+  console.log('🎯 Engine: Received triggerEvent request for config!', event.detail);
+  
+  try {
+    const config = JSON.parse(JSON.stringify(window.hlx || window.aem || {}));
     
+    if (pluginOptions?.prodHost) {
+      config.prodHost = pluginOptions.prodHost;
+    }
+    
+    const responseMessage = {
+      type: 'hlx:experimentation-config',
+      config,
+      source: 'engine-trigger-event-response',
+      timestamp: Date.now()
+    };
+    
+    console.log('📤 Engine: Broadcasting config response to all frames...');
+    
+    // Send to multiple targets to ensure delivery
     try {
-      const config = JSON.parse(JSON.stringify(window.hlx || window.aem || {}));
+      // Send to parent
+      window.parent.postMessage(responseMessage, '*');
       
-      if (pluginOptions?.prodHost) {
-        config.prodHost = pluginOptions.prodHost;
+      // Send to top
+      window.top.postMessage(responseMessage, '*');
+      
+      // Send to all sibling frames (where extension might be)
+      for (let i = 0; i < window.parent.frames.length; i++) {
+        try {
+          window.parent.frames[i].postMessage(responseMessage, '*');
+        } catch (frameError) {
+          // Skip inaccessible frames
+        }
       }
       
-      console.log('📤 Engine: Sending config response via postMessage...');
-      
-      // Send response via postMessage (only reliable cross-iframe method)
-      window.parent.postMessage({
-        type: 'hlx:experimentation-config',
-        config,
-        source: 'engine-trigger-event-response',
-        timestamp: Date.now()
-      }, '*');
-      
-      console.log('✅ Engine: Sent config response for triggerEvent');
+      console.log('✅ Engine: Broadcasted config response to all frames');
       
     } catch (error) {
-      console.error('❌ Engine: Error handling triggerEvent request:', error);
+      console.error('❌ Engine: Error broadcasting response:', error);
     }
-  });
+    
+  } catch (error) {
+    console.error('❌ Engine: Error handling triggerEvent request:', error);
+  }
+});
   
   console.log('✅ Engine: triggerEvent listener is ready');
 
