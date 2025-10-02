@@ -955,6 +955,7 @@ async function serveAudience(document, pluginOptions) {
   );
 }
 
+// Add this debugging to your engine code
 export async function loadEager(document, options = {}) {
   const pluginOptions = { ...DEFAULT_OPTIONS, ...options };
   setDebugMode(window.location, pluginOptions);
@@ -969,9 +970,12 @@ export async function loadEager(document, options = {}) {
   ns.audience = ns.audiences.find((e) => e.type === 'page');
   ns.campaign = ns.campaigns.find((e) => e.type === 'page');
 
+  // 🧪 DEBUG: Log that we're setting up the listener
+  console.log('🔧 Engine: Setting up triggerEvent listener...');
+  
   // NEW: triggerEvent support (always active for new extensions)
   document.addEventListener('hlx:experimentation-get-config', async (event) => {
-    console.log('Engine: Received triggerEvent request for config');
+    console.log('🎯 Engine: Received triggerEvent request for config!', event.detail);
     
     try {
       const config = JSON.parse(JSON.stringify(window.hlx || window.aem || {}));
@@ -979,6 +983,8 @@ export async function loadEager(document, options = {}) {
       if (pluginOptions?.prodHost) {
         config.prodHost = pluginOptions.prodHost;
       }
+      
+      console.log('📤 Engine: Sending config response via postMessage...');
       
       // Send response via postMessage (only reliable cross-iframe method)
       window.parent.postMessage({
@@ -988,16 +994,21 @@ export async function loadEager(document, options = {}) {
         timestamp: Date.now()
       }, '*');
       
-      console.log('Engine: Sent config response for triggerEvent');
+      console.log('✅ Engine: Sent config response for triggerEvent');
       
     } catch (error) {
-      console.error('Engine: Error handling triggerEvent request:', error);
+      console.error('❌ Engine: Error handling triggerEvent request:', error);
     }
   });
+  
+  console.log('✅ Engine: triggerEvent listener is ready');
 
   // postMessage support
   if (isDebugEnabled) {
+    console.log('🔧 Engine: Setting up legacy postMessage listener...');
     setupCommunicationLayer(pluginOptions);
+  } else {
+    console.log('⚠️ Engine: Debug mode disabled, legacy postMessage not available');
   }
 }
 
