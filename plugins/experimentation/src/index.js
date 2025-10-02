@@ -1005,31 +1005,55 @@ export async function loadEager(document, options = {}) {
 //   });
 // }
 function setupCommunicationLayer(options) {
-  document.addEventListener('hlx:experimentation-get-config', async (event) => {
-    console.log('🎯 Engine: Received CustomEvent request for config!', event.detail);
-    
-    try {
-        const safeClone = JSON.parse(JSON.stringify(window.hlx || window.aem || {}));
-        
-        if (options?.prodHost) {
-            safeClone.prodHost = options.prodHost;
-        }
-        
-        console.log('📤 Engine: Sending config response via postMessage (CustomEvent failed)');
-        
-        // Use postMessage for the response (reliable cross-iframe communication)
-        window.parent.postMessage({
-            type: 'hlx:experimentation-config',
-            config: safeClone,
-            source: 'engine-trigger-event-hybrid',
-            timestamp: Date.now()
-        }, '*');
-        
-        console.log('✅ Engine: Successfully sent config response via postMessage');
-        
-    } catch (error) {
-        console.error('❌ Engine: Error handling CustomEvent config request:', error);
-    }
+// Update your engine code to this for better debugging:
+document.addEventListener('hlx:experimentation-get-config', async (event) => {
+  console.log('🎯 Engine: Received CustomEvent request for config!', event.detail);
+  
+  try {
+      const safeClone = JSON.parse(JSON.stringify(window.hlx || window.aem || {}));
+      
+      if (options?.prodHost) {
+          safeClone.prodHost = options.prodHost;
+      }
+      
+      console.log('📤 Engine: Sending config response via postMessage');
+      console.log('🔍 Engine debug info:', {
+          'window.parent': window.parent,
+          'window.top': window.top,
+          'current window': window,
+          'parent === top': window.parent === window.top,
+          'parent === self': window.parent === window
+      });
+      
+      const message = {
+          type: 'hlx:experimentation-config',
+          config: safeClone,
+          source: 'engine-trigger-event-hybrid',
+          timestamp: Date.now()
+      };
+      
+      // Try multiple targets to ensure delivery
+      console.log('📡 Engine: Sending to window.parent...');
+      window.parent.postMessage(message, '*');
+      
+      console.log('📡 Engine: Sending to window.top...');
+      window.top.postMessage(message, '*');
+      
+      // Also try sending to all parent frames
+      try {
+          for (let i = 0; i < window.parent.frames.length; i++) {
+              console.log(`📡 Engine: Sending to parent.frames[${i}]...`);
+              window.parent.frames[i].postMessage(message, '*');
+          }
+      } catch (e) {
+          console.log('❌ Engine: Could not send to parent frames:', e.message);
+      }
+      
+      console.log('✅ Engine: Successfully sent config response via postMessage');
+      
+  } catch (error) {
+      console.error('❌ Engine: Error handling CustomEvent config request:', error);
+  }
 });
 }
 
