@@ -970,10 +970,7 @@ export async function loadEager(document, options = {}) {
   ns.audience = ns.audiences.find((e) => e.type === 'page');
   ns.campaign = ns.campaigns.find((e) => e.type === 'page');
 
-  // 🧪 DEBUG: Log that we're setting up the listener
-  console.log('🔧 Engine: Setting up triggerEvent listener...');
-  
- // Update your engine's triggerEvent listener to this:
+ // More targeted approach - try direct paths first
 document.addEventListener('hlx:experimentation-get-config', async (event) => {
   console.log('🎯 Engine: Received triggerEvent request for config!', event.detail);
   
@@ -991,47 +988,46 @@ document.addEventListener('hlx:experimentation-get-config', async (event) => {
       timestamp: Date.now()
     };
     
-    console.log('📤 Engine: Broadcasting config response to all frames...');
+    console.log('📤 Engine: Sending config response via postMessage...');
     
-    // Send to multiple targets to ensure delivery
+    // Try the most likely targets first
+    let messageSent = false;
+    
     try {
-      // Send to parent
+      // First try: Send to parent (most common case)
       window.parent.postMessage(responseMessage, '*');
-      
-      // Send to top
-      window.top.postMessage(responseMessage, '*');
-      
-      // Send to all sibling frames (where extension might be)
-      for (let i = 0; i < window.parent.frames.length; i++) {
-        try {
-          window.parent.frames[i].postMessage(responseMessage, '*');
-        } catch (frameError) {
-          // Skip inaccessible frames
-        }
-      }
-      
-      console.log('✅ Engine: Broadcasted config response to all frames');
-      
+      messageSent = true;
+      console.log('✅ Engine: Sent to parent window');
     } catch (error) {
-      console.error('❌ Engine: Error broadcasting response:', error);
+      console.log('⚠️ Engine: Could not send to parent:', error.message);
+    }
+    
+    // If we're in a nested iframe, also try top
+    if (window.top !== window.parent) {
+      try {
+        window.top.postMessage(responseMessage, '*');
+        console.log('✅ Engine: Also sent to top window');
+      } catch (error) {
+        console.log('⚠️ Engine: Could not send to top:', error.message);
+      }
+    }
+    
+    if (messageSent) {
+      console.log('✅ Engine: Message sent successfully');
+    } else {
+      console.error('❌ Engine: Failed to send message to any target');
     }
     
   } catch (error) {
     console.error('❌ Engine: Error handling triggerEvent request:', error);
   }
 });
-  
-  console.log('✅ Engine: triggerEvent listener is ready');
 
-  // postMessage support
+  // Legacy postMessage support (debug mode only)
   if (isDebugEnabled) {
-    console.log('🔧 Engine: Setting up legacy postMessage listener...');
     setupCommunicationLayer(pluginOptions);
-  } else {
-    console.log('⚠️ Engine: Debug mode disabled, legacy postMessage not available');
   }
 }
-
 // EXISTING: Support legacy postMessage communication
 function setupCommunicationLayer(options) {
   window.addEventListener('message', async (event) => {
