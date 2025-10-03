@@ -971,6 +971,7 @@ export async function loadEager(document, options = {}) {
   ns.campaign = ns.campaigns.find((e) => e.type === 'page');
 
  // More targeted approach - try direct paths first
+// This is the WORKING version - use this one
 document.addEventListener('hlx:experimentation-get-config', async (event) => {
   console.log('🎯 Engine: Received triggerEvent request for config!', event.detail);
   
@@ -988,34 +989,32 @@ document.addEventListener('hlx:experimentation-get-config', async (event) => {
       timestamp: Date.now()
     };
     
-    console.log('📤 Engine: Sending config response via postMessage...');
-    
-    // Try the most likely targets first
-    let messageSent = false;
+    console.log('📤 Engine: Broadcasting config response to all frames...');
     
     try {
-      // First try: Send to parent (most common case)
+      // Send to parent
       window.parent.postMessage(responseMessage, '*');
-      messageSent = true;
-      console.log('✅ Engine: Sent to parent window');
-    } catch (error) {
-      console.log('⚠️ Engine: Could not send to parent:', error.message);
-    }
-    
-    // If we're in a nested iframe, also try top
-    if (window.top !== window.parent) {
-      try {
+      
+      // Send to top
+      if (window.top !== window.parent) {
         window.top.postMessage(responseMessage, '*');
-        console.log('✅ Engine: Also sent to top window');
-      } catch (error) {
-        console.log('⚠️ Engine: Could not send to top:', error.message);
       }
-    }
-    
-    if (messageSent) {
-      console.log('✅ Engine: Message sent successfully');
-    } else {
-      console.error('❌ Engine: Failed to send message to any target');
+      
+      // Send to all sibling frames (where extension might be)
+      for (let i = 0; i < window.parent.frames.length; i++) {
+        try {
+          if (window.parent.frames[i] !== window) {
+            window.parent.frames[i].postMessage(responseMessage, '*');
+          }
+        } catch (frameError) {
+          // Skip inaccessible frames
+        }
+      }
+      
+      console.log('✅ Engine: Broadcasted config response to all frames');
+      
+    } catch (error) {
+      console.error('❌ Engine: Error broadcasting response:', error);
     }
     
   } catch (error) {
