@@ -955,7 +955,9 @@ async function serveAudience(document, pluginOptions) {
   );
 }
 
-// Add this debugging to your engine code
+/**
+ * Loads experimentation features and sets up Universal Editor communication
+ */
 export async function loadEager(document, options = {}) {
   const pluginOptions = { ...DEFAULT_OPTIONS, ...options };
   setDebugMode(window.location, pluginOptions);
@@ -970,71 +972,61 @@ export async function loadEager(document, options = {}) {
   ns.audience = ns.audiences.find((e) => e.type === 'page');
   ns.campaign = ns.campaigns.find((e) => e.type === 'page');
 
- // More targeted approach - try direct paths first
-// This is the WORKING version - use this one
-document.addEventListener('hlx:experimentation-get-config', async (event) => {
-  console.log('🎯 Engine: Received triggerEvent request for config!', event.detail);
-  
-  try {
-    const config = JSON.parse(JSON.stringify(window.hlx || window.aem || {}));
-    
-    if (pluginOptions?.prodHost) {
-      config.prodHost = pluginOptions.prodHost;
-    }
-    
-    const responseMessage = {
-      type: 'hlx:experimentation-config',
-      config,
-      source: 'engine-trigger-event-response',
-      timestamp: Date.now()
-    };
-    
-    console.log('📤 Engine: Broadcasting config response to all frames...');
-    
+  // Universal Editor triggerEvent support (always active for optimal UE integration)
+  document.addEventListener('hlx:experimentation-get-config', async (event) => {
     try {
-      // Send to parent
-      window.parent.postMessage(responseMessage, '*');
+      const config = JSON.parse(JSON.stringify(window.hlx || window.aem || {}));
       
-      // Send to top
-      if (window.top !== window.parent) {
-        window.top.postMessage(responseMessage, '*');
+      if (pluginOptions?.prodHost) {
+        config.prodHost = pluginOptions.prodHost;
       }
       
-      // Send to all sibling frames (where extension might be)
-      for (let i = 0; i < window.parent.frames.length; i++) {
-        try {
-          if (window.parent.frames[i] !== window) {
-            window.parent.frames[i].postMessage(responseMessage, '*');
-          }
-        } catch (frameError) {
-          // Skip inaccessible frames
-        }
-      }
-      
-      console.log('✅ Engine: Broadcasted config response to all frames');
-      
-    } catch (error) {
-      console.error('❌ Engine: Error broadcasting response:', error);
-    }
-    
-  } catch (error) {
-    console.error('❌ Engine: Error handling triggerEvent request:', error);
-  }
-});
+      const responseMessage = {
+        type: 'hlx:experimentation-config',
+        config,
+        source: 'engine-trigger-event-response',
+        timestamp: Date.now()
+      };
 
-  // Legacy postMessage support (debug mode only)
+      // Broadcast to all frames to ensure Universal Editor extension receives the message
+      try {
+        window.parent.postMessage(responseMessage, '*');
+        
+        if (window.top !== window.parent) {
+          window.top.postMessage(responseMessage, '*');
+        }
+        
+        // Send to all sibling frames where the extension might be running
+        for (let i = 0; i < window.parent.frames.length; i++) {
+          try {
+            if (window.parent.frames[i] !== window) {
+              window.parent.frames[i].postMessage(responseMessage, '*');
+            }
+          } catch (frameError) {
+            // Skip inaccessible frames due to cross-origin restrictions
+          }
+        }
+      } catch (error) {
+        console.error('Error broadcasting experimentation config:', error);
+      }
+    } catch (error) {
+      console.error('Error handling experimentation config request:', error);
+    }
+  });
+
   if (isDebugEnabled) {
     setupCommunicationLayer(pluginOptions);
   }
 }
-// EXISTING: Support legacy postMessage communication
+
+/**
+ * Post-message communication layer for older Universal Editor implementations
+ */
 function setupCommunicationLayer(options) {
   window.addEventListener('message', async (event) => {
     if (event.data?.type === 'hlx:experimentation-get-config') {
-      console.log('🎯 Engine: Received legacy postMessage request for config');
-      
       try {
-        const safeClone = JSON.parse(JSON.stringify(window.hlx));
+        const safeClone = JSON.parse(JSON.stringify(window.hlx || window.aem || {}));
 
         if (options.prodHost) {
           safeClone.prodHost = options.prodHost;
@@ -1043,17 +1035,14 @@ function setupCommunicationLayer(options) {
         event.source.postMessage({
           type: 'hlx:experimentation-config',
           config: safeClone,
-          source: 'engine-legacy-response',
+          source: 'engine-post-message-response',
         }, '*');
-        
-        console.log('Engine: Sent config response for legacy postMessage');
-      } catch (e) {
-        console.error('Engine: Error sending legacy config:', e);
+      } catch (error) {
+        console.error('Error handling post-message experimentation request:', error);
       }
     }
   });
 }
-
 
 export async function loadLazy(document, options = {}) {
   // do not show the experimentation pill on prod domains
