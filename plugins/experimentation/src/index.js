@@ -984,7 +984,7 @@ export async function loadEager(document, options = {}) {
       const responseMessage = {
         type: 'hlx:experimentation-config',
         config,
-        source: 'engine-response',
+        source: 'full-engine-response',
         timestamp: Date.now()
       };
 
@@ -1034,7 +1034,7 @@ function setupCommunicationLayer(options) {
         event.source.postMessage({
           type: 'hlx:experimentation-config',
           config: safeClone,
-          source: 'engine-post-message-response',
+          source: 'full-engine-response',
         }, '*');
       } catch (error) {
         console.error('Error handling post-message experimentation request:', error);
