@@ -972,61 +972,44 @@ export async function loadEager(document, options = {}) {
   ns.audience = ns.audiences.find((e) => e.type === 'page');
   ns.campaign = ns.campaigns.find((e) => e.type === 'page');
 
+  // Universal Editor triggerEvent support (always active)
   document.addEventListener('hlx:experimentation-get-config', async (event) => {
-    console.log('🎯 Engine: Received triggerEvent request!', event.detail);
-    
     try {
       const config = JSON.parse(JSON.stringify(window.hlx || window.aem || {}));
       
       if (pluginOptions?.prodHost) {
         config.prodHost = pluginOptions.prodHost;
       }
-  
-      // 🧪 TEST 1: Try CustomEvent first (Adobe's official way)
-      console.log('📤 Engine: Trying CustomEvent response...');
-      const responseEvent = new CustomEvent('hlx:experimentation-config', {
-        detail: {
-          config,
-          source: 'engine-customevent-response',
-          timestamp: Date.now(),
-          requestId: event.detail?.timestamp
-        },
-        bubbles: true
-      });
       
-      document.dispatchEvent(responseEvent);
-      console.log('✅ Engine: Sent CustomEvent response');
-  
-      // 🧪 TEST 2: Also try postMessage (backup method)
-      setTimeout(() => {
-        console.log('📤 Engine: Also sending postMessage response...');
-        const responseMessage = {
-          type: 'hlx:experimentation-config',
-          config,
-          source: 'engine-postmessage-response',
-          timestamp: Date.now()
-        };
-  
-        try {
-          window.parent.postMessage(responseMessage, '*');
-          if (window.top !== window.parent) {
-            window.top.postMessage(responseMessage, '*');
-          }
-          for (let i = 0; i < window.parent.frames.length; i++) {
-            try {
-              if (window.parent.frames[i] !== window) {
-                window.parent.frames[i].postMessage(responseMessage, '*');
-              }
-            } catch (frameError) {}
-          }
-          console.log('✅ Engine: Sent postMessage response');
-        } catch (error) {
-          console.error('❌ Engine: postMessage failed:', error);
+      const responseMessage = {
+        type: 'hlx:experimentation-config',
+        config,
+        source: 'engine-response',
+        timestamp: Date.now()
+      };
+
+      // Broadcast to all frames (PROVEN method)
+      try {
+        window.parent.postMessage(responseMessage, '*');
+        
+        if (window.top !== window.parent) {
+          window.top.postMessage(responseMessage, '*');
         }
-      }, 100); // Small delay to see which arrives first
-      
+        
+        for (let i = 0; i < window.parent.frames.length; i++) {
+          try {
+            if (window.parent.frames[i] !== window) {
+              window.parent.frames[i].postMessage(responseMessage, '*');
+            }
+          } catch (frameError) {
+            // Skip inaccessible frames
+          }
+        }
+      } catch (error) {
+        console.error('Error broadcasting experimentation config:', error);
+      }
     } catch (error) {
-      console.error('❌ Engine: Error handling request:', error);
+      console.error('Error handling experimentation config request:', error);
     }
   });
 
